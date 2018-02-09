@@ -29,9 +29,11 @@ private: array<unsigned char, 2>^ toGrayscale (System::Drawing::Bitmap^ Image) {
 }
 ```
 ## Enhancing license plate borders before edge detection
-It's a good idea to enhance a grayscale image before edge detection. To this end, you can use histogram equalization or another adaptive technique; however, a nice effect can be accomplished with a LoG filter (a.k.a Mexican Hat filter) which fills the gaps between worn out borders of old license plates, as depicted in the followin figure:
+It's a good idea to enhance a grayscale image before edge detection. To this end, you can use histogram equalization or another adaptive technique; however, a nice effect can be accomplished with a LoG filter (a.k.a Mexican Hat filter) which fills the gaps between worn out borders of old license plates, as depicted in the following figures:
 
-<img src="image3.png?raw=true" alt="LoG filter" height="110" width="142">
+<img src="image3.png?raw=true" alt="LoG filter" height="220" width="285"> <img src="image4.png?raw=true" alt="LoG filter" height="242" width="450">
+
+The next function applies the Mexican Hat filter to the grayscale image:
 
 ```c++
 private: cli::array<unsigned char, 2>^ ApplyMexicanHat (cli::array<unsigned char, 2> ^ ImArray){
@@ -54,13 +56,15 @@ private: cli::array<unsigned char, 2>^ ApplyMexicanHat (cli::array<unsigned char
       for(j=0; j<n; j++){
         for(i=0; i<m; i++){
           a=x+i-(m-1)/2;
-				  b=y+j-(n-1)/2;
-					if((a>=0 && a<M) && (b>=0 && b<N))
-						AuxArray[x,y]+=safe_cast<double>(MaskArray[i,j]*ImArray[a,b]);
-				}
+	  b=y+j-(n-1)/2;
+	  if((a>=0 && a<M) && (b>=0 && b<N))
+	    AuxArray[x,y]+=safe_cast<double>(MaskArray[i,j]*ImArray[a,b]);
+	}
       }
     }
   }
+  /* The remaining code adjusts the filtered image so that we can take a look at it.
+     However, remember to comment these lines before going to the next detection step */
   double auxmax = AuxArray[0,0];
   double auxmin = AuxArray[0,0];
   for each(double aux in AuxArray){
@@ -78,4 +82,4 @@ private: cli::array<unsigned char, 2>^ ApplyMexicanHat (cli::array<unsigned char
 }
 ```
 
-Note that the Mexican Hat filter has zero mean and the resulting image pixel value may extend beyond the range [0,255]. For display purpose, the previous code normalizes each pixel to have an intensity in the former range.
+Note that the Mexican Hat filter has zero mean and the resulting image pixel value may extend beyond the range [0,255]. For display purpose, the previous code normalizes each pixel to have an intensity value in the former range.
