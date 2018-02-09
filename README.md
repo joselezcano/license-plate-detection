@@ -33,6 +33,7 @@ It's a good idea to enhance a grayscale image before edge detection. To this end
 
 <img src="image3.png?raw=true" alt="LoG filter" height="220" width="285"> <img src="image4.png?raw=true" alt="LoG filter" height="242" width="450">
 
+The figure on the left is a side view of the LoG filter. Figure a) is a license plate with red borders (as used in Paraguay), figure b) is the grayscale version of the color image, and figure c) is the LoG-filtered image.
 The next function applies the Mexican Hat filter to the grayscale image:
 
 ```c++
