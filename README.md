@@ -157,7 +157,7 @@ The next step in detecting an object inside an image is to segment it in its com
 cli::array<unsigned char, 2>^ ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
   int x, y;
   int i = 0;
-  int label = 0;
+  int label = 0; // label ID
   int M = Image->GetLength(0);
   int N = Image->GetLength(1);
   cli::array<unsigned char, 2>^ AuxArray = gcnew cli::array<unsigned char, 2>(M,N);
@@ -297,20 +297,24 @@ ref struct ConnectedComponent{
   // Assignment operator
   ConnectedComponent% operator=(const ConnectedComponent% p){ 
     if(this != %p){
-      a = p.a;
-      b = p.b;
-      xmax = p.xmax;
-      xmin = p.xmin;
-      ymax = p.ymax;
-      ymin = p.ymin;
-      Xymax = p.Xymax;
-      Xymin = p.Xymin;
-      Yxmax = p.Yxmax;
-      Yxmin = p.Yxmin;
+      a = p.a; // label ID
+      b = p.b; // amount of pixels in the connected component
+      xmax = p.xmax; // bounding box maximum x value
+      xmin = p.xmin; // bounding box minimum x value
+      ymax = p.ymax; // bounding box maximum y value
+      ymin = p.ymin; // bounding box minimum x value
+      Xymax = p.Xymax; // extreme C
+      Xymin = p.Xymin; // extreme A
+      Yxmax = p.Yxmax; // extreme B
+      Yxmin = p.Yxmin; // extreme D
     }
     return *this;
   }
   int a, b, xmax, xmin, ymax, ymin, Xymax, Xymin, Yxmax, Yxmin;
 };
 ```
+
+Connected components found by this algorithm are depicted in different shades of gray in the following figure. Note that the license plate was correctly segmented since no other object from the image ended up connected to it.
+
+<img src="image8.png?raw=true" alt="Grayscale image" height="220" width="294">
 
