@@ -149,3 +149,168 @@ private: cli::array<unsigned char, 2>^ ToBinary (cli::array<unsigned char, 2>^ I
 The new binary image is shown next.
 
 <img src="image7.png?raw=true" alt="Grayscale image" height="220" width="294">
+
+## Extract connected components
+The next step in detecting an object inside an image is to segment it in its components. Connected pixels define an isolated region that may represent a meaningful part of an image (or just a cluster of pixels). The following function implements a fast algorithm to label connected components:
+
+```c++
+cli::array<unsigned char, 2>^ ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
+  int x, y;
+  int i = 0;
+  int label = 0;
+  int M = Image->GetLength(0);
+  int N = Image->GetLength(1);
+  cli::array<unsigned char, 2>^ AuxArray = gcnew cli::array<unsigned char, 2>(M,N);
+  cliext::vector<int>^ labels = gcnew cliext::vector<int>(M*N);
+  cliext::vector<ConnectedComponent^>^ labeledCC;
+  cliext::fill(labels->begin(), labels->end(), 0);
+  if (Image[0,0] == 255){
+    label++;
+    labels[i] = label;
+  }
+  i++;
+  for (x = 1; x < M; x++){
+    if (Image[x,0] == 255){
+      if(Image[x,0] == Image[x-1,0]){
+        labels[i] = labels[i-1];
+      } else {
+        label++;
+        labels[i] = label;
+      }
+    }
+    i++;
+  }
+  for (y = 1; y < N; y++){
+    for (x = 0; x < M; x++){
+      if (Image[x,y] == 255){
+        if (x == 0){
+          if (Image[x,y-1] == 255){
+            labels[i] = labels[i-M];
+          }
+        } else {
+          if (Image[x-1,y] == 255){
+            labels[i] = labels[i-1];
+          }
+          if (Image[x,y-1] == 255){
+            if (Image[x-1,y] == 255 && labels[i] != labels[(y-1)*M+x]){
+              Merge(labels, labels[(y-1)*M+x], labels[i]);
+            } else {
+              labels[i] = labels[i-M];
+            }
+          }
+          if (Image[x-1,y] == 0 && Image[x,y-1] == 0){
+	    if (Image[x-1,y-1] == 255){
+	      labels[i] = labels[(y-1)*M+x-1];
+	    } else {
+	      label++;
+	      labels[i] = label;
+	    }
+          }
+        }
+      } else {
+        if(x != 0){
+	  if (Image[x-1,y] == 255 && Image[x,y-1] == 255){
+	    Merge(labels, labels[(y-1)*M+x], labels[i-1]);
+	  }
+	}
+      }
+      i++;
+    }
+  }
+  labeledCC = gcnew cliext::vector<ConnectedComponent^>();
+  int j = 0;
+  int k, c, q;
+  for (q = 0; q < M*N; q++){
+    if(labels[q] != 0){
+      if (j > 0){
+        c = 0;
+	for (k = 0; k < j; k++){
+	  if (labels[q] != labeledCC[k]->a)
+	    c++;
+          else {
+	    labeledCC[k]->b++;
+	    labeledCC[k]->ymax = (q - q % M)/M; 
+	    labeledCC[k]->Xymax = q % M;
+	    if (q % M < labeledCC[k]->xmin){
+	      labeledCC[k]->xmin = q % M; 
+	      labeledCC[k]->Yxmin = (q - q % M)/M;
+	    }
+	    if (q % M > labeledCC[k]->xmax){
+	      labeledCC[k]->xmax = q % M; 
+	      labeledCC[k]->Yxmax = (q - q % M)/M;
+            }
+          }
+	  if (c == j){
+	    ConnectedComponent^ element = gcnew ConnectedComponent();
+	    element->a = labels[q];
+	    element->b++;
+	    element->ymin = (q - q % M)/M;
+	    element->Xymin = q % M;
+	    element->xmin = q % M;
+	    element->xmax = q % M;
+	    labeledCC->push_back(element);
+	    j++;
+	  }
+	}
+      } else {
+        ConnectedComponent^ element = gcnew ConnectedComponent();
+	element->a = labels[q];
+	element->b++;
+	element->ymin = (q - q % M)/M;
+	element->xmin = q % M;
+	element->xmax = q % M;
+	labeledCC->push_back(element);
+	j++;
+      }
+    }
+  }
+  // At this point, j holds the amount of connected components found
+  for (y = 0; y < N; y++)
+    for (x = 0; x < M; x++)
+      if(labels[x+y*M] > 0)
+        AuxArray[x,y] = 255;	
+  return AuxArray; 
+}
+```
+
+The function 'Merge' consolidates two labels into one when two sub-regions happen to belong to the same connected component during the execution of the 'ExtractConnectedComponents' function.
+
+```c++
+void Merge (cliext::vector<int>^ labels, int parent1, int parent2){
+  int i=0;
+  for each (int label in labels){
+    if (parent1 < parent2 && label == parent2)
+      labels[i] = parent1;
+    if (parent2 < parent1 && label == parent1)
+      labels[i] = parent2;
+    i++;
+  }
+}
+```
+
+Also, the following class is useful to keep details of each connected components found, such their bounding box coordinates.
+
+```c++
+ref struct ConnectedComponent{
+  // Constructor
+  ConnectedComponent (void): a(0), b(0), xmax(0), xmin(0), ymax(0), ymin(0), Xymax(0), Xymin(0), Yxmax(0), Yxmin(0) {}
+  // Assignment operator
+  ConnectedComponent% operator=(const ConnectedComponent% p){ 
+    if(this != %p){
+      a = p.a;
+      b = p.b;
+      xmax = p.xmax;
+      xmin = p.xmin;
+      ymax = p.ymax;
+      ymin = p.ymin;
+      Xymax = p.Xymax;
+      Xymin = p.Xymin;
+      Yxmax = p.Yxmax;
+      Yxmin = p.Yxmin;
+    }
+    return *this;
+  }
+  int a, b, xmax, xmin, ymax, ymin, Xymax, Xymin, Yxmax, Yxmin;
+};
+```
+
