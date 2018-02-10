@@ -360,7 +360,7 @@ When a license plate is tilted in the range [-45, 45] degrees, its bounding box 
 This function will eliminates those candidates whose bounding boxes have an aspect ratio outside the range [1, 2].
 
 ```c++
-cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char, 2>^ Image){
+cli::array<unsigned char, 2>^ ApplyBoundingBoxCriterion (cli::array<unsigned char, 2>^ Image){
   int M = Image->GetLength(0);
   int N = Image->GetLength(1);
   int x,y;
@@ -376,11 +376,11 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char
         deletedCandidates++;
 	// This loops turns the eliminated candidate into black background
 	for(x = 0; x < M*N; x++){
-	  if (labels[x] == element->a){
-	    labels[x] = 0;
-	    labeledCC[index]->a = 0;
+	  if (labels[x] == element->a){ // element->a holds the label ID
+	    labels[x] = 0;	    
 	  }
 	}
+	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
     } else {
       double candidateAspectRatio = safe_cast<double>(System::Math::Abs(element->xmax - element->xmin))/safe_cast<double>(System::Math::Abs(element->ymax - element->ymin));
       // Checks if a candidate has a bounding box with aspect ratio outside the valid range and deletes it
@@ -388,11 +388,11 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char
         deletedCandidates++;
 	// This loops turns the eliminated candidate into black background
 	for(x = 0; x < M*N; x++){
-	  if (labels[x] == element->a){
-	    labels[x] = 0;
-	    labeledCC[index]->a = 0;
+	  if (labels[x] == element->a){ // element->a holds the label ID
+	    labels[x] = 0; 
 	  }
         }
+	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
       }     
     }
     index++; 
@@ -405,8 +405,67 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char
   return NewImArray; 
 }    
 ```
-Before applying the bounding box criteria, the image had 47 connected components; after it, the image has only 23 valid candidates. The binary image with the remaining candidates is presented next:
+Before applying the bounding box criterion, the image had 47 connected components; after it, the image has only 23 valid candidates. The binary image with the remaining candidates is presented next:
 
 <img src="image20.png?raw=true" alt="Grayscale image" height="220" width="294">
+
+## Filter out candidates without rectangular proportions
+Take a look at the following figures:
+
+<img src="image14.png?raw=true" alt="Grayscale image" height="157" width="766">
+
+On figure a) there's a candidate, in figure b) you'll see its extreme points calculated in the ExtractConnectedComponents function, and in figure c) imagine a rectangle defined by those extreme points.
+A perfect license plate would have equal sides AD and BC, as well as AB and CD. Also, segment BC should be twice segment CD for Paraguayan license plates.
+The next function deletes candidates that do not conform to these metrics.
+
+```c++
+cli::array<unsigned char, 2>^ RectangularProportionsCriteria (cli::array<unsigned char, 2>^ Image){
+  int M = Image->GetLength(0);
+  int N = Image->GetLength(1);
+  cli::array<unsigned char, 2>^ NewImArray = gcnew cli::array<unsigned char, 2>(M,N);
+  int x,y;
+  int deletedCandidates = 0;
+  // Let's define excentricity as width/height
+  double plateExcentricity = 2.0; // For Paraguayan license plates
+  int index = 0;
+  for each (ConnectedComponent^ element in labeledCC){
+    if (element->a!=0 ){
+      double side1 = safe_cast<double>((element->ymin - element->Yxmax)*(element->ymin - element->Yxmax) + (element->xmax - element->Xymin)*(element->xmax - elemento->Xymin));
+      double side2 = safe_cast<double>((element->Yxmax - element->ymax)*(element->Yxmax - element->ymax) + (element->xmax - element->Xymax)*(element->xmax - element->Xymax));
+      double side3 = safe_cast<double>((element->Xymax - element->xmin)*(element->Xymax - element->xmin) + (element->Yxmin - element->ymax)*(element->Yxmin - element->ymax));
+      double side4 = safe_cast<double>((element->ymin - element->Yxmin)*(element->ymin - element->Yxmin) + (element->Xymin - element->xmin)*(element->Xymin - element->xmin));
+      double relation13 = side1/side3;
+      double relation24 = side2/side4;
+      double excentricity;
+      if (side1 > side2)
+        excentricity = side1/side2;
+      else
+	excentricity = side2/side1;
+      // Let's use a 20% tolerance for rectangular proportions
+      if (excentricity < 0.8 * plateExcentricity || excentricidad > 1.2 * plateExcentricity || 
+          relation13 > 1.21 || relation13 < 0.81 || relation24 > 1.21 || relation24 < 0.81){
+	deletedCandidates++;
+	for(x = 0; x < M*N; x++)
+	  if (labels[x] == element->a){ // element->a holds the label ID
+	    labels[x] = 0;
+	  }
+	}
+	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+      }      
+    }
+    index++;
+  }
+  // If there is some valid candidates after deletion, they'll be seen in the next binary image in white
+  for (y = 0; y < N; y++)
+    for (x = 0; x < M; x++)
+      if(labels[x+y*M] > 0)
+        NewImArray[x,y] = 255;
+  return NewImArray; 
+}  
+```
+
+The amount of candidates reduces from 23 to only 9, as depicted next.
+
+<img src="image15.png?raw=true" alt="Grayscale image" height="220" width="294">
 
 
