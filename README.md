@@ -445,7 +445,7 @@ cli::array<unsigned char, 2>^ RectangularProportionsCriteria (cli::array<unsigne
       if (excentricity < 0.8 * plateExcentricity || excentricidad > 1.2 * plateExcentricity || 
           relation13 > 1.21 || relation13 < 0.81 || relation24 > 1.21 || relation24 < 0.81){
 	deletedCandidates++;
-	for(x = 0; x < M*N; x++)
+	for(x = 0; x < M*N; x++){
 	  if (labels[x] == element->a){ // element->a holds the label ID
 	    labels[x] = 0;
 	  }
@@ -468,4 +468,97 @@ The amount of candidates reduces from 23 to only 9, as depicted next.
 
 <img src="image15.png?raw=true" alt="Grayscale image" height="220" width="294">
 
+## Use area as a feature to remove more candidates
+At this step, some candidates may have survived previous filters, which means they have a valid bounding box and rectangular proportions. However, their area, given by the amount of pixels, may still be smaller or higher than that of a license plate inside the same bounding box. For this reason, we should discard candidates that do not have a valid area.
+Before removing candidates, we should estimate the area of a license plate for each size of a valid bounding box (because a plate could be tilted) an fill in the holes of connected components (due to letters inside plates), as shown next.
 
+<img src="image16.png?raw=true" alt="Grayscale image" height="248" width="666">
+
+Figure a) shows a segmented license plates with holes due to letters. Figure b) shows the same license plate after filling up its holes with white pixels. 
+The following function discards candidates by area.
+
+```c++
+cli::array<unsigned char, 2>^ AreaCriterion (cli::array<unsigned char, 2>^ ImArray){
+  // ImArray contains the resulting image from the RectangularProportionsCriteria function
+  cli::array<unsigned char, 2>^ NewImArray = gcnew cli::array<unsigned char, 2>(ImArray->GetLength(0), ImArray->GetLength(1));
+  int deletedCandidates = 0;
+  int index;
+  // Iterate over each connected component (candidate)
+  for each (ConnectedComponent^ element in labeledCC){
+    int x, y;
+    int begin, end;
+    int fill = 0;
+    cli::array<unsigned char, 2>^ region = gcnew cli::array<unsigned char, 2>(element->xmax - element->xmin, element->ymax - element->ymin);
+    int M = region->GetLength(0);
+    int N = region->GetLength(1);
+    // Let's create a sub-image called 'region' with the current connected component
+    for (y = 0; y < N; y++)
+      for (x = 0; x < M; x++)
+        region[x,y] = ImArray[element->xmin + x, element->ymin + y];
+    int area = 0;
+    // This for loop calculates the amount of pixels needed to fill holes inside a region
+    for (y = 0; y < N; y++){
+      begin = end = 0;
+      x = 0;
+      while (x < M){
+        if (region[x,y] == 255)
+	  begin = x;
+	  x++;
+      }
+      x = M;
+      while (x != 0){
+        if (region[x-1,y] == 255)
+	  end = x;
+	  x--;
+      }
+      if (end > (begin + 1)){
+        for (x = begin + 1; x < fin; x++){
+	  if (region[x,y] == 0)
+	    fill++;
+	  }
+	}
+      }      
+    }
+    // The area of the region including pixels that fill into holes is
+    area = fill + element->b;    
+    // The total area including the exterior of a region is
+    int totalArea = area + (element->ymax - element->Yxmax)*(element->xmax - element->Xymax) + (element->ymax - element->Yxmin)*(element->Xymax - element->xmin);
+    // The following if-clause deletes a candidate assuming it is tilted
+    if (totalArea < 0.8*M*N || totalArea > 1.2*M*N){ // 20% tolerance
+      deletedCandidates++;
+      for(x = 0; x < M*N; x++){
+        if (labels[x] == element->a){ // element->a holds the label ID
+          labels[x] = 0;
+        }
+      }
+      labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+    } else {
+      int totalArea = area;
+      // The following if-clause deletes a candidate considering no tilt
+      if (totalArea < 0.8*M*N || totalArea > 1.2*M*N){ // 20% tolerance
+        deletedCandidates++;
+	for(x = 0; x < M*N; x++){
+	  if (labels[x] == element->a){ // element->a holds the label ID
+	    labels[x] = 0;
+	  }
+	}
+	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+      }
+    }
+    index++;
+  }
+  // If there is some valid candidates after deletion, they'll be seen in the next binary image in white
+  for (y = 0; y < N; y++)
+    for (x = 0; x < M; x++)
+      if(labels[x+y*M] > 0)
+        NewImArray[x,y] = 255;
+  return NewImArray; 
+}
+```
+
+After filtering out components using the area criterion there are only 3 final candidates.
+
+<img src="image17.png?raw=true" alt="Grayscale image" height="220" width="294">
+
+## Final remarks
+To sum up, all previous steps reduce the amount of connected components to a handful of good candidates which can be fed to a neural network for character recognition (the candidate with 6 letters will be the Paraguayan license plate). The advantage of a pure Image Processing approach is that you do not need to scan the input image repeatedly using windows of several sizes, as in neural network processing.
