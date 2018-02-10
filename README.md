@@ -327,15 +327,16 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char
   int M = Image->GetLength(0);
   int N = Image->GetLength(1);
   int x,y;
-  int m = 0;
-  double minValidAspectRatio = 1.0; // For Paraguayan license plates
-  double maxValidAspectRatio = 2.0; // For Paraguayan license plates
+  int deletedCandidates = 0;
+  // Bounding box aspect ratio limits
+  double minValidAspectRatio = 1.0; // For Paraguayan license plates with tilt in range [-45, 45] degrees
+  double maxValidAspectRatio = 2.0; // For Paraguayan license plates with tilt in range [-45, 45] degrees
   int index = 0;
   for each (ConnectedComponent^ element in labeledCC){
     if (element->a != 0){
       // Checks if a candidate has zero width or zero height and deletes it
-      if (System::Math::Abs(elemento->ymax-elemento->ymin)==0 || System::Math::Abs(elemento->xmax-elemento->xmin)==0){
-        m++;
+      if (System::Math::Abs(element->ymax - element->ymin) == 0 || System::Math::Abs(element->xmax - element->xmin) == 0){
+        deletedCandidates++;
 	// This loops turns the eliminated candidate into black background
 	for(x = 0; x < M*N; x++){
 	  if (labels[x] == element->a){
@@ -344,10 +345,10 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char
 	  }
 	}
      } else {
-       double candidateAspectRatio = safe_cast<double>(System::Math::Abs(elemento->xmax-element->xmin))/safe_cast<double>(System::Math::Abs(element->ymax-elemento->ymin));
+       double candidateAspectRatio = safe_cast<double>(System::Math::Abs(element->xmax - element->xmin))/safe_cast<double>(System::Math::Abs(element->ymax - element->ymin));
        // Checks if a candidate has a bounding box with aspect ratio outside the valid range and deletes it
        if (candidateAspectRatio < minValidAspectRatio || candidateAspectRatio > maxValidAspectRatio){
-         m++;
+         deletedCandidates++;
 	 // This loops turns the eliminated candidate into black background
 	 for(x = 0; x < M*N; x++){
 	   if (labels[x] == element->a){
@@ -357,19 +358,18 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char
 	 }
        }     
      }
-     index++;
-     cantcont = cantelemsig - m;
-     // If there is some valid candidates after deletion, create a binary image with them
-     if (cantcont>0){
-       for (y = 0; y < N; y++)
-         for (x = 0; x < M; x++)
-	   if(etiquetas[x+y*M] > 0)
-	     NewImArray[x,y] = 255;
-      }
-    }
+     index++; 
   }
+  // If there is some valid candidates after deletion, they'll be seen in the next binary image in white
+  for (y = 0; y < N; y++)
+    for (x = 0; x < M; x++)
+      if(labels[x+y*M] > 0)
+        NewImArray[x,y] = 255;
+  return NewImArray; 
 }    
 ```
+Before applying the bounding box criteria, the image had 47 connected components; after it, the image has only 23 valid candidates. The binary image with the remaining candidates is presented next:
 
+<img src="image20.png?raw=true" alt="Grayscale image" height="220" width="294">
 
 
