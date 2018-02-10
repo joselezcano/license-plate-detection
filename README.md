@@ -154,15 +154,17 @@ The new binary image is shown next.
 The next step in detecting an object inside an image is to segment it in its components. Connected pixels define an isolated region that may represent a meaningful part of an image (or just a cluster of pixels). The following function implements a fast algorithm to label connected components:
 
 ```c++
-cliext::vector<ConnectedComponent^>^ ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
+// This vector will contain all connected components that will be filtered out step by step in next sections
+cliext::vector<ConnectedComponent^>^ labeledCC;
+
+void ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
   int x, y;
   int i = 0;
   int label = 0; // label ID
   int M = Image->GetLength(0);
   int N = Image->GetLength(1);
   cli::array<unsigned char, 2>^ AuxArray = gcnew cli::array<unsigned char, 2>(M,N);
-  cliext::vector<int>^ labels = gcnew cliext::vector<int>(M*N);
-  cliext::vector<ConnectedComponent^>^ labeledCC;
+  cliext::vector<int>^ labels = gcnew cliext::vector<int>(M*N);  
   cliext::fill(labels->begin(), labels->end(), 0);
   if (Image[0,0] == 255){
     label++;
@@ -265,7 +267,6 @@ cliext::vector<ConnectedComponent^>^ ExtractConnectedComponents (cli::array<unsi
     }
   }
   // At this point, j holds the amount of connected components found	
-  return labeledCC; 
 }
 ```
 
@@ -314,16 +315,52 @@ Connected components found by this algorithm are depicted in different shades of
 
 <img src="image8.png?raw=true" alt="Grayscale image" height="220" width="294">
 
+## Eliminate connected components that are too small or too big
+Whichever application your aiming at with this detection algorithm (e.g. license plate character recognition), you'll only process license plates of a certain, useful size. The following function discards components with less than 170 pixels and more than 22,000 pixels.  
+
+```c++
+cli::array<unsigned char, 2>^ EliminateComponentsBySize (cli::array<unsigned char, 2>^ Image){
+  int M = Image->GetLength(0);
+  int N = Image->GetLength(1);
+  cli::array<unsigned char, 2>^ NewImArray = gcnew cli::array<unsigned char, 2>(M,N);
+  int x, y;
+  int deletedComponents = 0;
+  int index = 0;
+  for each (ConnectedComponent^ element in labeledCC){
+    if (element->b < 170 || element->b > 22000){
+      deletedComponents++;
+      // This loops turns the eliminated candidate into black background
+      for(x = 0; x < M*N; x++){
+        if (labels[x] == element->a){ // element->a holds the label ID
+	  labels[x] = 0;
+	}
+      }
+      labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+    }
+    index++;
+  }
+  // If there is some valid candidates after deletion, they'll be seen in the next binary image in white
+  for (y = 0; y < N; y++)
+      for (x = 0; x < M; x++)
+        if(labels[x+y*M] > 0)
+	  NewImArray[x,y] = 255;
+  return NewImArray;
+}
+```
+After this elimination step, 1096 connected components get reduced to only 47 relevant candidates.
+
+<img src="image9.png?raw=true" alt="Grayscale image" height="220" width="294">
+
 ## Employ bounding box aspect ratio to reduce candidates
 If your camera is fixed, in horizontal position, you will find that most license plates are almost horizontally aligned with the ground as well. Some tilt is allowed and it depends on you which range to use for filtering candidates, for instance, [-45, 45] degrees is more than a safe range.
 When a license plate is tilted in the range [-45, 45] degrees, its bounding box will have an aspect ratio (m/n) in the interval [1, 2], as shown next for a Paraguayan license plate whose width is twice its height (a/b = 2).
 
 <img src="image10.png?raw=true" alt="Grayscale image" height="124" width="124"> <img src="image12.png?raw=true" alt="Grayscale image" height="220" width="294"> <img src="image11.png?raw=true" alt="Grayscale image" height="120" width="220">
 
-This function will eliminate those candidates whose bounding boxes have an aspect ratio outside the range [1, 2].
+This function will eliminates those candidates whose bounding boxes have an aspect ratio outside the range [1, 2].
 
 ```c++
-cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char, 2>^ Image, cliext::vector<ConnectedComponent^>^ labeledCC){
+cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char, 2>^ Image){
   int M = Image->GetLength(0);
   int N = Image->GetLength(1);
   int x,y;
@@ -344,21 +381,21 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char
 	    labeledCC[index]->a = 0;
 	  }
 	}
-     } else {
-       double candidateAspectRatio = safe_cast<double>(System::Math::Abs(element->xmax - element->xmin))/safe_cast<double>(System::Math::Abs(element->ymax - element->ymin));
-       // Checks if a candidate has a bounding box with aspect ratio outside the valid range and deletes it
-       if (candidateAspectRatio < minValidAspectRatio || candidateAspectRatio > maxValidAspectRatio){
-         deletedCandidates++;
-	 // This loops turns the eliminated candidate into black background
-	 for(x = 0; x < M*N; x++){
-	   if (labels[x] == element->a){
-	     labels[x] = 0;
-	     labeledCC[index]->a = 0;
-	   }
-	 }
-       }     
-     }
-     index++; 
+    } else {
+      double candidateAspectRatio = safe_cast<double>(System::Math::Abs(element->xmax - element->xmin))/safe_cast<double>(System::Math::Abs(element->ymax - element->ymin));
+      // Checks if a candidate has a bounding box with aspect ratio outside the valid range and deletes it
+      if (candidateAspectRatio < minValidAspectRatio || candidateAspectRatio > maxValidAspectRatio){
+        deletedCandidates++;
+	// This loops turns the eliminated candidate into black background
+	for(x = 0; x < M*N; x++){
+	  if (labels[x] == element->a){
+	    labels[x] = 0;
+	    labeledCC[index]->a = 0;
+	  }
+        }
+      }     
+    }
+    index++; 
   }
   // If there is some valid candidates after deletion, they'll be seen in the next binary image in white
   for (y = 0; y < N; y++)
