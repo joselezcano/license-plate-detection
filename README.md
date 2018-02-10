@@ -154,7 +154,7 @@ The new binary image is shown next.
 The next step in detecting an object inside an image is to segment it in its components. Connected pixels define an isolated region that may represent a meaningful part of an image (or just a cluster of pixels). The following function implements a fast algorithm to label connected components:
 
 ```c++
-cli::array<unsigned char, 2>^ ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
+cliext::vector<ConnectedComponent^>^ ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
   int x, y;
   int i = 0;
   int label = 0; // label ID
@@ -264,12 +264,8 @@ cli::array<unsigned char, 2>^ ExtractConnectedComponents (cli::array<unsigned ch
       }
     }
   }
-  // At this point, j holds the amount of connected components found
-  for (y = 0; y < N; y++)
-    for (x = 0; x < M; x++)
-      if(labels[x+y*M] > 0)
-        AuxArray[x,y] = 255;	
-  return AuxArray; 
+  // At this point, j holds the amount of connected components found	
+  return labeledCC; 
 }
 ```
 
@@ -317,4 +313,63 @@ ref struct ConnectedComponent{
 Connected components found by this algorithm are depicted in different shades of gray in the following figure. Note that the license plate was correctly segmented since no other object from the image ended up connected to it.
 
 <img src="image8.png?raw=true" alt="Grayscale image" height="220" width="294">
+
+## Employ bounding box aspect ratio to reduce candidates
+If your camera is fixed, in horizontal position, you will find that most license plates are almost horizontally aligned with the ground as well. Some tilt is allowed and it depends on you which range to use for filtering candidates, for instance, [-45, 45] degrees is more than a safe range.
+When a license plate is tilted in the range [-45, 45] degrees, its bounding box will have an aspect ratio (m/n) in the interval [1, 2], as shown next for a Paraguayan license plate whose width is twice its height (a/b = 2).
+
+<img src="image10.png?raw=true" alt="Grayscale image" height="124" width="124"> <img src="image12.png?raw=true" alt="Grayscale image" height="220" width="294"> <img src="image11.png?raw=true" alt="Grayscale image" height="120" width="220">
+
+This function will eliminate those candidates whose bounding boxes have an aspect ratio outside the range [1, 2].
+
+```c++
+cli::array<unsigned char, 2>^ ApplyBoundingBoxCriteria (cli::array<unsigned char, 2>^ Image, cliext::vector<ConnectedComponent^>^ labeledCC){
+  int M = Image->GetLength(0);
+  int N = Image->GetLength(1);
+  int x,y;
+  int m = 0;
+  double minValidAspectRatio = 1.0; // For Paraguayan license plates
+  double maxValidAspectRatio = 2.0; // For Paraguayan license plates
+  int index = 0;
+  for each (ConnectedComponent^ element in labeledCC){
+    if (element->a != 0){
+      // Checks if a candidate has zero width or zero height and deletes it
+      if (System::Math::Abs(elemento->ymax-elemento->ymin)==0 || System::Math::Abs(elemento->xmax-elemento->xmin)==0){
+        m++;
+	// This loops turns the eliminated candidate into black background
+	for(x = 0; x < M*N; x++){
+	  if (labels[x] == element->a){
+	    labels[x] = 0;
+	    labeledCC[index]->a = 0;
+	  }
+	}
+     } else {
+       double candidateAspectRatio = safe_cast<double>(System::Math::Abs(elemento->xmax-element->xmin))/safe_cast<double>(System::Math::Abs(element->ymax-elemento->ymin));
+       // Checks if a candidate has a bounding box with aspect ratio outside the valid range and deletes it
+       if (candidateAspectRatio < minValidAspectRatio || candidateAspectRatio > maxValidAspectRatio){
+         m++;
+	 // This loops turns the eliminated candidate into black background
+	 for(x = 0; x < M*N; x++){
+	   if (labels[x] == element->a){
+	     labels[x] = 0;
+	     labeledCC[index]->a = 0;
+	   }
+	 }
+       }     
+     }
+     index++;
+     cantcont = cantelemsig - m;
+     // If there is some valid candidates after deletion, create a binary image with them
+     if (cantcont>0){
+       for (y = 0; y < N; y++)
+         for (x = 0; x < M; x++)
+	   if(etiquetas[x+y*M] > 0)
+	     NewImArray[x,y] = 255;
+      }
+    }
+  }
+}    
+```
+
+
 
