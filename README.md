@@ -31,7 +31,7 @@ private: array<unsigned char, 2>^ ToGrayscale (System::Drawing::Bitmap^ Image){
 ## Enhancing license plate borders before detection
 It's a good idea to enhance a grayscale image before detecting an object. To this end, you can use histogram equalization or another adaptive technique; however, a nice effect can be accomplished with a Laplacian of Gaussian (LoG) filter which fills the gaps between worn out borders of old license plates, as depicted in the following figures:
 
-<img src="image3.png?raw=true" alt="LoG filter" height="220" width="285"> <img src="image4.png?raw=true" alt="LoG filter" height="242" width="450">
+<img src="image3.png?raw=true" alt="LoG filter" height="220" width="285"> <img src="image4.png?raw=true" alt="Border improvement" height="242" width="450">
 
 The figure on the left is a side view of the LoG filter (a.k.a Mexican Hat filter). Figure a) is a license plate with red borders (as used in Paraguay), figure b) is the grayscale version of the color image, and figure c) is the LoG-filtered image.
 The next function applies the Mexican Hat filter to the grayscale image:
@@ -85,12 +85,12 @@ private: cli::array<unsigned char, 2>^ ApplyMexicanHat (cli::array<unsigned char
 
 Note that the Mexican Hat filter has zero mean and the resulting image pixel value may extend beyond the range [0,255]. For display purpose, the previous code normalizes each pixel to have an intensity value in the former range. As a result, we get the following picture which looks a bit opaque due to normalization:
 
-<img src="image5.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image5.png?raw=true" alt="LoG filtered image" height="220" width="294">
 
 ## Turn the filtered image into a binary image
 After enhancing a grayscale image, you can turn it into 1s and 0s (i.e pixel values of 255 and 0) to start segmenting the image. An simple way to map a gray pixel to black or white is to compare it with a threshold (e.g. 150), but this method does not perform well when parts of an image differ in their local intensities. An adaptive algorithm would consider a neighborhood around the current pixel ('pixel actual' in Spanish) to decide which threshdold is the most suitable in each region of the image. 
 
-<img src="image6.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image6.png?raw=true" alt="Threshold image" height="220" width="294">
 
 The following algorithm starts with a threshold of 150, then calculates a mean for dark and bright pixels, updates the threshold to the mid-point between those means, and keeps iterating until the threshold converges to an appropiate value.
 
@@ -148,14 +148,14 @@ private: cli::array<unsigned char, 2>^ ToBinary (cli::array<unsigned char, 2>^ I
 
 The new binary image is shown next.
 
-<img src="image7.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image7.png?raw=true" alt="Binary image" height="220" width="294">
 
 ## Extract connected components
 The next step in detecting an object inside an image is to segment it in its components. Connected pixels define an isolated region that may represent a meaningful part of an image (or just a cluster of pixels). The following function implements a fast algorithm to label connected components:
 
 ```c++
 // This vector will contain all connected components that will be filtered out step by step in next sections
-cliext::vector<ConnectedComponent^>^ labeledCC;
+cliext::vector<ConnectedComponent^>^ labeledCCs;
 
 void ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
   int x, y;
@@ -219,7 +219,7 @@ void ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
       i++;
     }
   }
-  labeledCC = gcnew cliext::vector<ConnectedComponent^>();
+  labeledCCs = gcnew cliext::vector<ConnectedComponent^>();
   int j = 0;
   int k, c, q;
   for (q = 0; q < M*N; q++){
@@ -227,19 +227,19 @@ void ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
       if (j > 0){
         c = 0;
 	for (k = 0; k < j; k++){
-	  if (labels[q] != labeledCC[k]->a)
+	  if (labels[q] != labeledCCs[k]->a)
 	    c++;
           else {
-	    labeledCC[k]->b++;
-	    labeledCC[k]->ymax = (q - q % M)/M; 
-	    labeledCC[k]->Xymax = q % M;
-	    if (q % M < labeledCC[k]->xmin){
-	      labeledCC[k]->xmin = q % M; 
-	      labeledCC[k]->Yxmin = (q - q % M)/M;
+	    labeledCCs[k]->b++;
+	    labeledCCs[k]->ymax = (q - q % M)/M; 
+	    labeledCCs[k]->Xymax = q % M;
+	    if (q % M < labeledCCs[k]->xmin){
+	      labeledCCs[k]->xmin = q % M; 
+	      labeledCCs[k]->Yxmin = (q - q % M)/M;
 	    }
-	    if (q % M > labeledCC[k]->xmax){
-	      labeledCC[k]->xmax = q % M; 
-	      labeledCC[k]->Yxmax = (q - q % M)/M;
+	    if (q % M > labeledCCs[k]->xmax){
+	      labeledCCs[k]->xmax = q % M; 
+	      labeledCCs[k]->Yxmax = (q - q % M)/M;
             }
           }
 	  if (c == j){
@@ -250,7 +250,7 @@ void ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
 	    element->Xymin = q % M;
 	    element->xmin = q % M;
 	    element->xmax = q % M;
-	    labeledCC->push_back(element);
+	    labeledCCs->push_back(element);
 	    j++;
 	  }
 	}
@@ -261,7 +261,7 @@ void ExtractConnectedComponents (cli::array<unsigned char, 2>^ Image){
 	element->ymin = (q - q % M)/M;
 	element->xmin = q % M;
 	element->xmax = q % M;
-	labeledCC->push_back(element);
+	labeledCCs->push_back(element);
 	j++;
       }
     }
@@ -313,7 +313,7 @@ ref struct ConnectedComponent{
 
 Connected components found by this algorithm are depicted in different shades of gray in the following figure. Note that the license plate was correctly segmented since no other object from the image ended up connected to it.
 
-<img src="image8.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image8.png?raw=true" alt="CCs image" height="220" width="294">
 
 ## Eliminate connected components that are too small or too big
 Whichever application your aiming at with this detection algorithm (e.g. license plate character recognition), you'll only process license plates of a certain, useful size. The following function discards components with less than 170 pixels and more than 22,000 pixels.  
@@ -326,7 +326,7 @@ cli::array<unsigned char, 2>^ EliminateComponentsBySize (cli::array<unsigned cha
   int x, y;
   int deletedComponents = 0;
   int index = 0;
-  for each (ConnectedComponent^ element in labeledCC){
+  for each (ConnectedComponent^ element in labeledCCs){
     if (element->b < 170 || element->b > 22000){
       deletedComponents++;
       // This loops turns the eliminated candidate into black background
@@ -335,7 +335,7 @@ cli::array<unsigned char, 2>^ EliminateComponentsBySize (cli::array<unsigned cha
 	  labels[x] = 0;
 	}
       }
-      labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+      labeledCCs[index]->a = 0; // label ID 0 is used for discarded candidates
     }
     index++;
   }
@@ -349,13 +349,13 @@ cli::array<unsigned char, 2>^ EliminateComponentsBySize (cli::array<unsigned cha
 ```
 After this elimination step, 1096 connected components get reduced to only 47 relevant candidates.
 
-<img src="image9.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image9.png?raw=true" alt="Good-sized candidates image" height="220" width="294">
 
 ## Employ bounding box aspect ratio to reduce candidates
 If your camera is fixed, in horizontal position, you will find that most license plates are almost horizontally aligned with the ground as well. Some tilt is allowed and it depends on you which range to use for filtering candidates, for instance, [-45, 45] degrees is more than a safe range.
 When a license plate is tilted in the range [-45, 45] degrees, its bounding box will have an aspect ratio (m/n) in the interval [1, 2], as shown next for a Paraguayan license plate whose width is twice its height (a/b = 2).
 
-<img src="image10.png?raw=true" alt="Grayscale image" height="124" width="124"> <img src="image12.png?raw=true" alt="Grayscale image" height="220" width="294"> <img src="image11.png?raw=true" alt="Grayscale image" height="120" width="220">
+<img src="image10.png?raw=true" alt="Object image" height="124" width="124"> <img src="image12.png?raw=true" alt="Problem Geometry" height="220" width="294"> <img src="image11.png?raw=true" alt="Formula" height="120" width="220">
 
 This function will eliminates those candidates whose bounding boxes have an aspect ratio outside the range [1, 2].
 
@@ -369,7 +369,7 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriterion (cli::array<unsigned cha
   double minValidAspectRatio = 1.0; // For Paraguayan license plates with tilt in range [-45, 45] degrees
   double maxValidAspectRatio = 2.0; // For Paraguayan license plates with tilt in range [-45, 45] degrees
   int index = 0;
-  for each (ConnectedComponent^ element in labeledCC){
+  for each (ConnectedComponent^ element in labeledCCs){
     if (element->a != 0){
       // Checks if a candidate has zero width or zero height and deletes it
       if (System::Math::Abs(element->ymax - element->ymin) == 0 || System::Math::Abs(element->xmax - element->xmin) == 0){
@@ -380,7 +380,7 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriterion (cli::array<unsigned cha
 	    labels[x] = 0;	    
 	  }
 	}
-	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+	labeledCCs[index]->a = 0; // label ID 0 is used for discarded candidates
     } else {
       double candidateAspectRatio = safe_cast<double>(System::Math::Abs(element->xmax - element->xmin))/safe_cast<double>(System::Math::Abs(element->ymax - element->ymin));
       // Checks if a candidate has a bounding box with aspect ratio outside the valid range and deletes it
@@ -392,7 +392,7 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriterion (cli::array<unsigned cha
 	    labels[x] = 0; 
 	  }
         }
-	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+	labeledCCs[index]->a = 0; // label ID 0 is used for discarded candidates
       }     
     }
     index++; 
@@ -407,12 +407,12 @@ cli::array<unsigned char, 2>^ ApplyBoundingBoxCriterion (cli::array<unsigned cha
 ```
 Before applying the bounding box criterion, the image had 47 connected components; after it, the image has only 23 valid candidates. The binary image with the remaining candidates is presented next:
 
-<img src="image20.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image20.png?raw=true" alt="Bounding box result image" height="220" width="294">
 
 ## Filter out candidates without rectangular proportions
 Take a look at the following figures:
 
-<img src="image14.png?raw=true" alt="Grayscale image" height="157" width="766">
+<img src="image14.png?raw=true" alt="Rectangle extremes image" height="157" width="766">
 
 On figure a) there's a candidate, in figure b) you'll see its extreme points calculated in the ExtractConnectedComponents function, and in figure c) imagine a rectangle defined by those extreme points.
 A perfect license plate would have equal sides AD and BC, as well as AB and CD. Also, segment BC should be twice segment CD for Paraguayan license plates.
@@ -428,7 +428,7 @@ cli::array<unsigned char, 2>^ RectangularProportionsCriteria (cli::array<unsigne
   // Let's define excentricity as width/height
   double plateExcentricity = 2.0; // For Paraguayan license plates
   int index = 0;
-  for each (ConnectedComponent^ element in labeledCC){
+  for each (ConnectedComponent^ element in labeledCCs){
     if (element->a!=0 ){
       double side1 = safe_cast<double>((element->ymin - element->Yxmax)*(element->ymin - element->Yxmax) + (element->xmax - element->Xymin)*(element->xmax - elemento->Xymin));
       double side2 = safe_cast<double>((element->Yxmax - element->ymax)*(element->Yxmax - element->ymax) + (element->xmax - element->Xymax)*(element->xmax - element->Xymax));
@@ -450,7 +450,7 @@ cli::array<unsigned char, 2>^ RectangularProportionsCriteria (cli::array<unsigne
 	    labels[x] = 0;
 	  }
 	}
-	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+	labeledCCs[index]->a = 0; // label ID 0 is used for discarded candidates
       }      
     }
     index++;
@@ -466,13 +466,13 @@ cli::array<unsigned char, 2>^ RectangularProportionsCriteria (cli::array<unsigne
 
 The amount of candidates reduces from 23 to only 9, as depicted next.
 
-<img src="image15.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image15.png?raw=true" alt="Rectangular proportions image" height="220" width="294">
 
 ## Use area as a feature to remove more candidates
 At this step, some candidates may have survived previous filters, which means they have a valid bounding box and rectangular proportions. However, their area, given by the amount of pixels, may still be smaller or higher than that of a license plate inside the same bounding box. For this reason, we should discard candidates that do not have a valid area.
 Before removing candidates, we should estimate the area of a license plate for each size of a valid bounding box (because a plate could be tilted) an fill in the holes of connected components (due to letters inside plates), as shown next.
 
-<img src="image16.png?raw=true" alt="Grayscale image" height="248" width="666">
+<img src="image16.png?raw=true" alt="Fill up holes image" height="166" width="444">
 
 Figure a) shows a segmented license plates with holes due to letters. Figure b) shows the same license plate after filling up its holes with white pixels. 
 The following function discards candidates by area.
@@ -484,7 +484,7 @@ cli::array<unsigned char, 2>^ AreaCriterion (cli::array<unsigned char, 2>^ ImArr
   int deletedCandidates = 0;
   int index;
   // Iterate over each connected component (candidate)
-  for each (ConnectedComponent^ element in labeledCC){
+  for each (ConnectedComponent^ element in labeledCCs){
     int x, y;
     int begin, end;
     int fill = 0;
@@ -531,7 +531,7 @@ cli::array<unsigned char, 2>^ AreaCriterion (cli::array<unsigned char, 2>^ ImArr
           labels[x] = 0;
         }
       }
-      labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+      labeledCCs[index]->a = 0; // label ID 0 is used for discarded candidates
     } else {
       int totalArea = area;
       // The following if-clause deletes a candidate considering no tilt
@@ -542,7 +542,7 @@ cli::array<unsigned char, 2>^ AreaCriterion (cli::array<unsigned char, 2>^ ImArr
 	    labels[x] = 0;
 	  }
 	}
-	labeledCC[index]->a = 0; // label ID 0 is used for discarded candidates
+	labeledCCs[index]->a = 0; // label ID 0 is used for discarded candidates
       }
     }
     index++;
@@ -558,7 +558,13 @@ cli::array<unsigned char, 2>^ AreaCriterion (cli::array<unsigned char, 2>^ ImArr
 
 After filtering out components using the area criterion there are only 3 final candidates.
 
-<img src="image17.png?raw=true" alt="Grayscale image" height="220" width="294">
+<img src="image17.png?raw=true" alt="Area image" height="220" width="294">
+
+## Detection examples
+You can further reduce the amount of candidates until you end up with only one. For this purpose, you need to add a few more criteria (such as presence of character shapes) or a scoring scheme to estimate the likelihood of each candidate to be a license plate. I chose the latter alternative and got a detection rate above 90%. I share some examples next (note we can estimate the distance to a vehicle as an application of this algorithm). 
+
+<img src="example2.bmp?raw=true" alt="Example 2" height="238" width="317"> <img src="example1.bmp?raw=true" alt="Example 1" height="240" width="245">
 
 ## Final remarks
-To sum up, all previous steps reduce the amount of connected components to a handful of good candidates which can be fed to a neural network for character recognition (the candidate with 6 letters will be the Paraguayan license plate). The advantage of a pure Image Processing approach is that you do not need to scan the input image repeatedly using windows of several sizes, as in neural network processing.
+To sum up, all previous steps reduce the amount of connected components to a handful of good candidates which can be fed to a neural network for character recognition or to another application. The advantage of a pure Image Processing approach is that you do not need to scan the input image repeatedly using windows of several sizes, as in neural network processing.
+
