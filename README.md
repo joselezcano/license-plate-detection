@@ -1,6 +1,13 @@
 # License Plate Detection
 This repository is a review of some Image Processing techniques and interesting heuristics to detect license plates.
-Code snippets were written in C++/CLI, since this application was originally developed in Microsoft Visual C++.
+Code was written in C++/CLI, since this application was originally developed in Microsoft Visual C++.
+
+The following videos show possible applications and sample images with detected license plates.
+
+[![Applications](img/video1.png)](https://youtu.be/J7jsmvYp5cM)
+
+[![Results](img/video2.png)](https://youtu.be/rQS5Azx8Hf4)
+
 
 ## Working with images in grayscale
 Although cameras provide colorful images, it is faster to work with grayscale images since we do not need to manipulate 3 color channels (RGB) at any processing step. Also, color may not be a good feature to filter candidates due to the high probability of finding objects with similar hue in a given scene. The following grayscale image was created with the ITU BT.709 formula.
