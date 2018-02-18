@@ -4,7 +4,8 @@ Code was written in C++/CLI, since this application was originally developed in 
 
 The following videos show possible applications and sample images with detected license plates.
 
-<a href="https://youtu.be/J7jsmvYp5cM"><img src="img/video1.png" align="left" height="191" width="342" ></a> <a href="https://youtu.be/rQS5Azx8Hf4"><img src="img/video2.png" align="left" height="192" width="342" ></a>
+<a href="https://youtu.be/J7jsmvYp5cM"><img src="img/video1.png" height="191" width="342" ></a> 
+<a href="https://youtu.be/rQS5Azx8Hf4"><img src="img/video2.png" height="191" width="342" ></a>
 
 ## Working with images in grayscale
 Although cameras provide colorful images, it is faster to work with grayscale images since we do not need to manipulate 3 color channels (RGB) at any processing step. Also, color may not be a good feature to filter candidates due to the high probability of finding objects with similar hue in a given scene. The following grayscale image was created with the ITU BT.709 formula.
