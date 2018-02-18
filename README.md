@@ -73,7 +73,7 @@ The 'Areas_Click' function discards candidates by area. After filtering out comp
 ## Detection examples
 You can further reduce the amount of candidates until you end up with only one. For this purpose, you need to add a few more criteria (such as presence of character shapes) or a scoring scheme to estimate the likelihood of each candidate to be a license plate. I chose the latter alternative and got a detection rate above 90%. I share some examples next (note we can estimate the distance to a vehicle as an application of this algorithm). 
 
-<img src="example2.bmp?raw=true" alt="Example 2" height="238" width="317"> <img src="example1.bmp?raw=true" alt="Example 1" height="240" width="245">
+<img src="img/example2.bmp?raw=true" alt="Example 2" height="238" width="317"> <img src="img/example1.bmp?raw=true" alt="Example 1" height="240" width="245">
 
 ## Final remarks
 To sum up, all previous steps reduce the amount of connected components to a handful of good candidates which can be fed to a neural network for character recognition or to another application. The advantage of a pure Image Processing approach is that you do not need to scan the input image repeatedly using windows of several sizes, as in neural network processing. 
