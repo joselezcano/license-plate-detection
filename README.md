@@ -7,20 +7,15 @@ The following videos show possible applications and sample images with detected 
 <a href="https://youtu.be/J7jsmvYp5cM"><img src="img/video1.png" height="191" width="342" ></a> 
 <a href="https://youtu.be/rQS5Azx8Hf4"><img src="img/video2.png" height="191" width="342" ></a>
 
-## Working with images in grayscale
-Although cameras provide colorful images, it is faster to work with grayscale images since we do not need to manipulate 3 color channels (RGB) at any processing step. Also, color may not be a good feature to filter candidates due to the high probability of finding objects with similar hue in a given scene. The following grayscale image was created with the ITU BT.709 formula.
-
-<img src="img/image1.jpeg?raw=true" alt="Color image" height="220" width="294"> <img src="img/image2.png?raw=true" alt="Grayscale image" height="220" width="294">
-
 ## Enhancing license plate borders before detection
 It's a good idea to enhance a grayscale image before detecting an object. To this end, you can use histogram equalization or another adaptive technique; however, a nice effect can be accomplished with a Laplacian of Gaussian (LoG) filter which fills the gaps between worn out borders of old license plates, as depicted in the following figures:
 
 <img src="img/image3.png?raw=true" alt="LoG filter" height="220" width="285"> <img src="img/image4.png?raw=true" alt="Border improvement" height="242" width="450">
 
 The figure on the left is a side view of the LoG filter (a.k.a Mexican Hat filter). Figure a) is a license plate with red borders (as used in Paraguay), figure b) is the grayscale version of the color image, and figure c) is the LoG-filtered image.
-Note that the Mexican Hat filter has zero mean and the resulting image pixel value may extend beyond the range [0,255]. For display purpose, you can normalize each pixel to have an intensity value in the former range. As a result, you'll get the following picture which looks a bit opaque due to normalization:
+Note that the Mexican Hat filter has zero mean and the resulting image pixel value may extend beyond the range [0,255]. For display purpose, you can normalize each pixel to have an intensity value in the former range. As a result, you'll get the  picture on the right which looks a bit opaque due to normalization. The photo on the left is the original RBG image under analysis.
 
-<img src="img/image5.png?raw=true" alt="LoG filtered image" height="220" width="294">
+<img src="img/image1.jpeg?raw=true" alt="Color image" height="220" width="294"> <img src="img/image5.png?raw=true" alt="LoG filtered image" height="220" width="294">
 
 ## Turn the filtered image into a binary image
 After enhancing a grayscale image, you can turn it into 1s and 0s (i.e pixel values of 255 and 0) to start segmenting the image. A simple way to map a gray pixel to black or white is to compare it with a threshold (e.g. 150), but this method does not perform well when parts of an image differ in their local intensities. An adaptive algorithm would consider a neighborhood around the current pixel ('pixel actual' in Spanish) to decide which threshdold is the most suitable in each region of the image. 
